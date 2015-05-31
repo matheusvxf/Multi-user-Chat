@@ -4,7 +4,8 @@ public class Event extends Packet {
 	public enum Type{
 		NEW_CLIENT,
 		ID_NOTIFY,
-		CLIENT_TABLE_NOTIFY
+		CLIENT_TABLE_NOTIFY,
+		CONNECTION_LOST_NOTIFY
 	}
 	
 	private Type mEventType;

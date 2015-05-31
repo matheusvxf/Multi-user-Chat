@@ -164,6 +164,9 @@ public class Client {
 			case CLIENT_TABLE_NOTIFY:
 				handleClientTableNotifyEvent((ClientTableNotifyEvent) event);
 				break;
+			case CONNECTION_LOST_NOTIFY:
+				handleConnectionLostNotify((ConnectionLostNotify) event);
+				break;
 			default:
 				break;
 			}
@@ -193,6 +196,16 @@ public class Client {
 				mIDTable.put(entry.getValue(), entry.getKey());
 			}
 			mSemaphore.release();
+		}
+		
+		private void handleConnectionLostNotify(ConnectionLostNotify event){
+			int ID = event.getID();
+			String name = mIDTable.get(mID);
+			
+			System.out.println(name + " leaved the chat!");
+			
+			mNameTable.remove(name);
+			mIDTable.remove(ID);
 		}
 	}
 }

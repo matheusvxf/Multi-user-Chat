@@ -3,6 +3,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Hashtable;
 import java.util.Scanner;
 import java.util.concurrent.Semaphore;
@@ -65,7 +66,7 @@ public class Server {
 			
 			mSemaphore.release();
 						
-			new Thread(new ClientHandler(this, mClientCounter)).start();
+			new Thread(new ClientHandler(this, client, mClientCounter)).start();
 		}
 	}
 
@@ -106,12 +107,21 @@ public class Server {
 		}
 	}
 	
+	private void removeClient(int ID){
+		mNameTable.remove(mIDTable.get(ID));
+		mClientTable.remove(ID);
+		mPacketSender.remove(ID);
+		mIDTable.remove(ID);
+	}
+	
 	private class ClientHandler implements Runnable {
 		private int mID;
 		private Server mServer;
+		private Socket mSocket;
 		
-		public ClientHandler(Server server, Integer ID) throws IOException{
+		public ClientHandler(Server server, Socket socket, Integer ID) throws IOException{
 			mServer = server;
+			mSocket = socket;
 			mID = ID;
 		}
 		
@@ -131,16 +141,38 @@ public class Server {
 				}
 				
 				stream.close();
-			} catch (ClassNotFoundException | IOException e) {
+			} catch (ClassNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}			
+			} catch (SocketException e)	{
+				System.out.println("Lost connection with " + mIDTable.get(mID) + 
+						" (" + mSocket.getInetAddress().getHostAddress() + ")");
+				mServer.removeClient(mID);
+				try {
+					connectionLostNotify();
+				} catch (InterruptedException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		
-		
+		private void connectionLostNotify() throws InterruptedException, IOException{
+			ConnectionLostNotify event = PacketBuilder.buildConnectionLostNotify(mID, mServer.mID, Packet.BROADCAST_ADDRESS);
+			
+			for(PacketSender sender : mPacketSender.values()){
+				sender.sendEvent(event);
+			}
+		}		
 		
 		private void handleCommand(Command command) throws InterruptedException, IOException{
 			switch(command.mType){
