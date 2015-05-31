@@ -1,53 +1,92 @@
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Random;
 import java.util.Scanner;
 
 public class Client {
 	public static void main(String[] args) throws UnknownHostException,
 			IOException {
-		Run();
+		if(args[0] != null)
+			new Client(args[0]).Run();
+		else
+			new Client().Run();
 	}
 
-	private static void Run() throws UnknownHostException, IOException {
-		Socket client = new Socket("127.0.0.1", 12345);
+	private static Random mRandom = new Random();
+	private String mName;	
+	private Socket mSocket;
+	
+	public Client(){
+		this("Unkwown" + Integer.toString(mRandom.nextInt()));
+	}
+	
+	public Client(String name){
+		mName = name;
+	}
+	
+	private void Run() throws UnknownHostException, IOException {
+		mSocket = new Socket("127.0.0.1", 12345);
 
 		System.out.println("The client connected to the server!");
 
-		ServerHandler serverHandler = new ServerHandler(client.getInputStream());
-		Thread thread = new Thread(serverHandler);
-		thread.run();
-
+		new Thread(new ServerHandler(this)).start();
 		Scanner keyboard = new Scanner(System.in);
-		PrintStream output = new PrintStream(client.getOutputStream());
-
+		ObjectOutputStream output = new ObjectOutputStream(mSocket.getOutputStream());
+		Command command = new SetClientNameCommand().setName(mName);
+		
+		output.writeObject(command);
 		while (keyboard.hasNextLine()) {
-			output.println(keyboard.nextLine());
+			command = new SendMessageCommand().setMessage(keyboard.nextLine());
+			output.writeObject(command);
 		}
 
 		output.close();
 		keyboard.close();
-		client.close();
+		mSocket.close();
 	}
 
 	public static class ServerHandler implements Runnable {
-		InputStream mInputStream;
+		private Client mClient;
 		
-		public ServerHandler(InputStream inputStream){
-			mInputStream = inputStream;
+		public ServerHandler(Client client){
+			mClient = client;
 		}
 		
 		@Override
 		public void run() {
-			Scanner scanner = new Scanner(mInputStream);
-			
-			while(scanner.hasNextLine()){
-				System.out.println("Client: " + scanner.nextLine());
+			try{
+				InputStream inputStream = mClient.mSocket.getInputStream();
+				ObjectInputStream stream = new ObjectInputStream(inputStream);
+				Command command;
+				
+				while ((command = (Command)stream.readObject()) != null) {
+					handleCommand(command);
+				}
+				
+				stream.close();
+			} catch(ClassNotFoundException | IOException e){
+				
 			}
-			scanner.close();
 		}
-
+		
+		private void handleCommand(Command command){
+			switch(command.mType){
+			case SEND_MESSAGE:
+				handleSendMessageCommand((SendMessageCommand)command);
+				break;
+			case SET_CLIENT_NAME:
+				break;
+			default:
+				break;
+			}
+		}
+		
+		private void handleSendMessageCommand(SendMessageCommand command){
+			System.out.println(command.getMessage());
+		}
 	}
 }
