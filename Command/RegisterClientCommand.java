@@ -1,16 +1,16 @@
 
-public class SetClientNameCommand extends Command {
+public class RegisterClientCommand extends Command {
 	private static final long serialVersionUID = 1L;
 	private String mName;
 	private Integer mID;
 	
-	public SetClientNameCommand() {
-		super(Type.SET_CLIENT_NAME);
+	public RegisterClientCommand() {
+		super(Type.REGISTER_CLIENT);
 		mID = 0x00;
 		mName = "unknow";
 	}
 	
-	public SetClientNameCommand setName(String name){
+	public RegisterClientCommand setName(String name){
 		mName = name;
 		return this;
 	}
@@ -19,7 +19,7 @@ public class SetClientNameCommand extends Command {
 		return mName;
 	}
 	
-	public SetClientNameCommand setID(Integer ID){
+	public RegisterClientCommand setID(Integer ID){
 		mID = ID;
 		return this;
 	}

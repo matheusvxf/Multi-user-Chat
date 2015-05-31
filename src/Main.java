@@ -1,19 +1,36 @@
 import java.io.IOException;
 
 public class Main {
+	private static String OS = null;
+	private static String SHELL = "gnome-terminal";
 
 	public static void main(String[] args) throws IOException {
-		Runtime r = Runtime.getRuntime();
-		r.exec("C:\\cygwin\\bin\\cygstart java -classpath bin/ Server");
+		Runtime runtime = Runtime.getRuntime();
+		if(isWindows()){
+			SHELL = "C:\\cygwin\\bin\\cygstart";
+		}
 		
+		runtime.exec(SHELL + " java -classpath bin/ Server");
+
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		r.exec("C:\\cygwin\\bin\\cygstart java -classpath bin/ Client matheus");
-		r.exec("C:\\cygwin\\bin\\cygstart java -classpath bin/ Client miles");		
+
+		runtime.exec(SHELL + " java -classpath bin/ Client matheus");
+		runtime.exec(SHELL + " java -classpath bin/ Client miles");
+	}
+
+	public static String getOsName() {
+		if (OS == null) {
+			OS = System.getProperty("os.name");
+		}
+		return OS;
+	}
+
+	public static boolean isWindows() {
+		return getOsName().startsWith("Windows");
 	}
 }

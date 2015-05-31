@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Hashtable;
@@ -14,23 +13,35 @@ public class Server {
 		new Server(12345).Run();
 	}
 	
+	public static int SERVER_ID = 1;
+	
 	private int mIP;
 	private int mDoor;
+	private int mID;
 	private int mClientCounter;
+	private String mName;
 	
-	private Hashtable<Integer, ObjectOutputStream> mOutputStreamTable;
+	private Hashtable<Integer, PacketSender> mPacketSender;
 	private Hashtable<Integer, Socket> mClientTable;
-	private Hashtable<String, Integer> mNameMap;
+	private Hashtable<String, Integer> mNameTable;
+	private Hashtable<Integer, String> mIDTable;
+	
 	private Semaphore mSemaphore;
 	
 	public Server(int door){
 		mIP = 0xEFFFFF01;
 		mDoor = door;
-		mClientCounter = 0;
-		mOutputStreamTable = new Hashtable<>();
+		mID = SERVER_ID;
+		mName = "server";
+		mClientCounter = 1;
+		mPacketSender = new Hashtable<>();
 		mClientTable = new Hashtable<>();
-		mNameMap = new Hashtable<>();
+		mNameTable = new Hashtable<>();
+		mIDTable = new Hashtable<>();
 		mSemaphore = new Semaphore(1);
+		
+		mNameTable.put(mName, mID);
+		mIDTable.put(mID, mName);
 	}
 
 	@SuppressWarnings("resource")
@@ -50,11 +61,11 @@ public class Server {
 			
 			mClientCounter++;
 			mClientTable.put(mClientCounter, client);
-			mOutputStreamTable.put(mClientCounter, new ObjectOutputStream(client.getOutputStream()));
+			mPacketSender.put(mClientCounter, new PacketSender(client.getOutputStream()));
 			
 			mSemaphore.release();
 						
-			new Thread(new ClientHandler(mClientCounter, this)).start();
+			new Thread(new ClientHandler(this, mClientCounter)).start();
 		}
 	}
 
@@ -71,15 +82,15 @@ public class Server {
 		public void run(){
 			Scanner scanner = new Scanner(mInputStream);
 			
-			while(scanner.hasNextLine()){
-				SendMessageCommand command = new SendMessageCommand().setMessage(scanner.nextLine());
-				command.setDestination(command.BROADCAST_ADDRESS);
-				command.setSource(mIP);
-				
+			// Server broadcast its command line input
+			while(scanner.hasNextLine()){				
 				try {
+					String line = scanner.nextLine();
+					SendMessageCommand command = PacketBuilder.buildSendMessageCommand(line, mID, Packet.BROADCAST_ADDRESS);
+					
 					mServer.mSemaphore.acquire();
-					for(ObjectOutputStream stream : mOutputStreamTable.values()){
-						stream.writeObject(command);
+					for(PacketSender sender : mPacketSender.values()){
+						sender.sendCommand(command);
 					}
 					mServer.mSemaphore.release();
 				} catch (InterruptedException e) {
@@ -95,11 +106,11 @@ public class Server {
 		}
 	}
 	
-	public static class ClientHandler implements Runnable {
-		private Integer mID;
+	private class ClientHandler implements Runnable {
+		private int mID;
 		private Server mServer;
 		
-		public ClientHandler(Integer ID, Server server) throws IOException{
+		public ClientHandler(Server server, Integer ID) throws IOException{
 			mServer = server;
 			mID = ID;
 		}
@@ -107,9 +118,11 @@ public class Server {
 		@Override
 		public void run() {
 			try {
-				mServer.mSemaphore.acquire();
-				InputStream inputStream = mServer.mClientTable.get(mID).getInputStream();
-				mServer.mSemaphore.release();
+				mSemaphore.acquire();
+				InputStream inputStream = mClientTable.get(mID).getInputStream();
+				mPacketSender.get(mID).sendClientTableNotifyEvent(mNameTable);
+				mSemaphore.release();
+				
 				ObjectInputStream stream = new ObjectInputStream(inputStream);
 				Command command;
 				
@@ -124,33 +137,64 @@ public class Server {
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}
-			
+			}			
 		}
 		
-		private void handleCommand(Command command) throws InterruptedException{
+		
+		
+		private void handleCommand(Command command) throws InterruptedException, IOException{
 			switch(command.mType){
-			case SET_CLIENT_NAME:
-				handleSetClientNameCommand((SetClientNameCommand)command);
+			case REGISTER_CLIENT:
+				handleRegisterClientCommand((RegisterClientCommand) command);
 				break;
 			case SEND_MESSAGE:
-				handleSendMessageCommand((SendMessageCommand)command);
+				handleSendMessageCommand((SendMessageCommand) command);
 				break;
 			default:
 				break;
 			}
 		}
 		
-		private void handleSetClientNameCommand(SetClientNameCommand command) throws InterruptedException{
-			mServer.mSemaphore.acquire();
+		private void handleRegisterClientCommand(RegisterClientCommand command) throws InterruptedException, IOException{
+			mSemaphore.acquire();
 			
-			mServer.mNameMap.put(command.getName(), mID);
+			mNameTable.put(command.getName(), mID);
+			mIDTable.put(mID, command.getName());
+			mPacketSender.get(mID).sendIDNotifyEvent(mID);
 			
-			mServer.mSemaphore.release();
+			mSemaphore.release();
+			
+			brodcastClientName(command.getName());
 		}
 		
-		private void handleSendMessageCommand(SendMessageCommand command){
-			System.out.println(command.getMessage());
+		private void handleSendMessageCommand(SendMessageCommand command) throws IOException, InterruptedException{;
+			System.out.println("Forwarding from " +
+					mIDTable.get(command.getSource()) + " to " +
+					mIDTable.get(command.getDestination()));
+			mSemaphore.acquire();
+			
+			if(command.getDestination() == mServer.mID){
+				System.out.println(mIDTable.get(command.getSource()) + " said: " + command.getMessage());
+			} else if(mPacketSender.containsKey(command.getDestination())){
+				mPacketSender.get(command.getDestination()).sendPacket(command);
+			}
+			
+			mSemaphore.release();
+		}
+		
+		private void brodcastClientName(String name) throws InterruptedException, IOException
+		{
+			NewClientEvent event = new NewClientEvent();
+			event.setID(mID);
+			event.setName(name);
+			
+			mSemaphore.acquire();
+			
+			for(PacketSender sender : mPacketSender.values()){
+				sender.sendEvent(event);
+			}
+			
+			mSemaphore.release();
 		}
 	}
 }
