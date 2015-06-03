@@ -31,7 +31,7 @@ public class Client {
 	private Semaphore mSemaphore;
 	
 	public Client(){
-		this("unknown" + Integer.toString(mRandom.nextInt()));
+		this("unknown" + Integer.toString(mRandom.nextInt() % 1000));
 	}
 	
 	public Client(String name){
@@ -167,13 +167,15 @@ public class Client {
 			case CONNECTION_LOST_NOTIFY:
 				handleConnectionLostNotify((ConnectionLostNotify) event);
 				break;
+			case COMMAND_ERROR:
+				handleCommandError((CommandErrorNotification) event);
 			default:
 				break;
 			}
 		}
 		
 		private void handleNewClientEvent(NewClientEvent event) throws InterruptedException{
-			System.out.println(event.getName() + " is online!");
+			Logger.clientOnline(event.getName());
 			
 			mSemaphore.acquire();
 			mNameTable.put(event.getName(), event.getID());
@@ -196,16 +198,33 @@ public class Client {
 				mIDTable.put(entry.getValue(), entry.getKey());
 			}
 			mSemaphore.release();
+			
+			for(Entry<Integer, String> entry : mIDTable.entrySet()){
+				if(entry.getKey() != Server.SERVER_ID && entry.getKey() != mID)
+					Logger.clientOnline(entry.getValue());
+			}
 		}
 		
 		private void handleConnectionLostNotify(ConnectionLostNotify event){
 			int ID = event.getID();
-			String name = mIDTable.get(mID);
+			String name = mIDTable.get(ID);
 			
-			System.out.println(name + " leaved the chat!");
+			Logger.clientLeaved(name);
 			
 			mNameTable.remove(name);
 			mIDTable.remove(ID);
+		}
+		
+		private void handleCommandError(CommandErrorNotification error){
+			switch(error.getErrorType()){
+			case REGISTER_CLIENT:
+				handleRegisterClientError((RegisterClientError) error);
+				break;
+			}
+		}
+		
+		private void handleRegisterClientError(RegisterClientError error){
+			
 		}
 	}
 }

@@ -19,7 +19,7 @@ public class Main {
 			e.printStackTrace();
 		}
 
-		runtime.exec(SHELL + " java -classpath bin/ Client matheus");
+		runtime.exec(SHELL + " java -classpath bin/ Client miles");
 		runtime.exec(SHELL + " java -classpath bin/ Client miles");
 	}
 

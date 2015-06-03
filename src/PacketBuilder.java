@@ -23,4 +23,12 @@ public class PacketBuilder {
 		
 		return packet;
 	}
+	
+	public static CommandErrorNotification buildCommandErrorNotification(CommandErrorNotification notification, int source, int destination){
+		return (CommandErrorNotification) buildEvent(notification, source, destination);
+	}
+	
+	public static RegisterClientError buildRegisterClientError(String name, int source, int destination){
+		return (RegisterClientError) buildCommandErrorNotification(new RegisterClientError(name), source, destination);
+	}
 }

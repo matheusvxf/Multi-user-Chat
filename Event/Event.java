@@ -5,7 +5,8 @@ public class Event extends Packet {
 		NEW_CLIENT,
 		ID_NOTIFY,
 		CLIENT_TABLE_NOTIFY,
-		CONNECTION_LOST_NOTIFY
+		CONNECTION_LOST_NOTIFY,
+		COMMAND_ERROR
 	}
 	
 	private Type mEventType;

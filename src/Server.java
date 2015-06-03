@@ -5,6 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Hashtable;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.Semaphore;
 
@@ -13,6 +14,8 @@ public class Server {
 	public static void main(String[] args) throws IOException, InterruptedException {
 		new Server(12345).Run();
 	}
+	private static Random mRandom = new Random();
+	private static String TAG = "Server";
 	
 	public static int SERVER_ID = 1;
 	
@@ -30,7 +33,7 @@ public class Server {
 	private Semaphore mSemaphore;
 	
 	public Server(int door){
-		mIP = 0xEFFFFF01;
+		mIP = 0xEFFFFF01; // 127.0.0.1
 		mDoor = door;
 		mID = SERVER_ID;
 		mName = "server";
@@ -172,7 +175,7 @@ public class Server {
 			for(PacketSender sender : mPacketSender.values()){
 				sender.sendEvent(event);
 			}
-		}		
+		}	
 		
 		private void handleCommand(Command command) throws InterruptedException, IOException{
 			switch(command.mType){
@@ -190,6 +193,10 @@ public class Server {
 		private void handleRegisterClientCommand(RegisterClientCommand command) throws InterruptedException, IOException{
 			mSemaphore.acquire();
 			
+			if(mNameTable.containsKey(command.getName())){ // Invalid Name
+				command.setName("unknown" + Integer.toString(mRandom.nextInt() % 1000));
+			}
+				
 			mNameTable.put(command.getName(), mID);
 			mIDTable.put(mID, command.getName());
 			mPacketSender.get(mID).sendIDNotifyEvent(mID);
