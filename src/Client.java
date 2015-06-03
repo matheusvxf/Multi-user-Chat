@@ -69,7 +69,9 @@ public class Client {
 			
 			if(command.equals("send")){
 				buildSendMessageCommand(scanner);					
-			} else{
+			} else if(command.equals("list")){
+				listClients();
+			}else{
 				throw new NoSuchElementException("Invalid command.");
 			}
 		} catch(NoSuchElementException e){
@@ -80,6 +82,22 @@ public class Client {
 			
 			System.out.println(message);
 		}
+	}
+	
+	private void listClients() throws InterruptedException{
+		mSemaphore.acquire();
+		
+		if(mIDTable.size() <= 2)
+			System.out.println("No other users online.");
+		else
+			System.out.println("Online users:");
+		for(Entry<Integer, String> entry : mIDTable.entrySet()){
+			if(entry.getKey() != mID && entry.getKey() != Server.SERVER_ID){
+				System.out.println(entry.getValue());
+			}
+		}
+		
+		mSemaphore.release();
 	}
 	
 	private void buildSendMessageCommand(Scanner scanner) throws IOException, InterruptedException{

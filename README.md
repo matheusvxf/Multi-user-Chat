@@ -40,4 +40,12 @@ Matheus e Miles recebem:
 
 server sent: any_message_here
 
+6) Listar usuários online:
+
+Quando Matheus insere o commando list são listados os usuários online
+
+$ list
+Other users:
+Miles
+
 
